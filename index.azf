@@ -1,0 +1,48 @@
+ⵣsection{Kesako azoufzouf ?!}
+
+ⵣset["pollen"]{http://mbutterick.github.io/pollen/doc/}
+
+It is primarly a markup language inpired by ⵣhref[pollen]{pollen}
+ which is itself inspired by tex macro language.
+
+This is not a replacement for:
+
+a) pollen (or racket)
+b) tex, latex or anything related to tex
+c) jinja2 (or any template engine for that matter)
+
+What is it then? Good question, a small library for me
+to fiddle with while I'm not at work. Because I like it,
+I bread it until now and I find it beautiful. I know it's unfair.
+
+ⵣsection{Getting started}
+
+Here is the current output of ⵣcode{azoufzouf --help} command:
+
+ⵣhelp
+
+Yeah it's pretty minimal, read the source (ⵣcode{azoufzouf.py} is 210 lines)
+to know how to put it to good use. 
+
+Basicaly this tex inspired language is easy to fiddle with from Python.
+
+Here is an ⵣcode{index.azf} the file used to render this page:
+
+ⵣinclude["index.azf"]
+
+Rendering is actually handled from Python, here is it:
+
+ⵣpython["main.py"]
+
+ⵣsection{COPYING}
+
+The licensing is very liberal, FRAK IT 14.08 or later, see below:
+
+ⵣinclude["COPYING"]
+
+The language by itself needs to be improved, but it's good enough for
+my immediate needs.
+
+That's all folks!
+
+

@@ -1,0 +1,270 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>azoufzouf - opiniated slick static website engine written in Python</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link href='http://fonts.googleapis.com/css?family=Forum' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="/static/normalize.css">
+    <link rel="stylesheet" href="/static/app.css">
+    <link rel="stylesheet" href="/static/highlight.css">
+  </head>
+  <body>
+    <div id="header" class="paper">
+      <h3>Since 2014 — and counting...</h3>
+      <img src="/static/logo.png" alt="dung beetle at work" title="Frak! So much ahead! Manyfolds job opportunies..."/>
+      <h1>azoufzouf</h1>
+      <h2>Delivering top quality dung from the interwebs!</h2>
+    </div>
+    <h1 class="main paper">Kesako azoufzouf ?!</h1></p><p class="main paper">
+
+It is primarly a markup language inpired by <a href="http://mbutterick.github.io/pollen/doc/">pollen</a>
+ which is itself inspired by tex macro language.
+
+This is not a replacement for:
+
+a) pollen (or racket)
+b) tex, latex or anything related to tex
+c) jinja2 (or any template engine for that matter)
+
+What is it then? Good question, a small library for me
+to fiddle with while I'm not at work. Because I like it,
+I bread it until now and I find it beautiful. I know it's unfair.
+
+</p><h1 class="main paper">Getting started</h1><p class="main paper">
+
+Here is the current output of <code>azoufzouf --help</code> command:
+
+</p><pre class="main paper">azoufzouf.
+
+Usage:
+  azoufzouf &lt;path&gt; [&lt;output&gt;]
+  azoufzouf -h | --help
+  azoufzouf --version
+
+Options:
+  -h --help     Show this screen.
+  --version     Show version.
+</pre><p class="main paper">
+
+Yeah it's pretty minimal, read the source (<code>azoufzouf.py</code> is 210 lines)
+to know how to put it to good use. 
+
+Basicaly this tex inspired language is easy to fiddle with from Python.
+
+Here is an <code>index.azf</code> the file used to render this page:
+
+</p><pre class="main paper">ⵣsection{Kesako azoufzouf ?!}
+
+ⵣset[&#34;pollen&#34;]{http://mbutterick.github.io/pollen/doc/}
+
+It is primarly a markup language inpired by ⵣhref[pollen]{pollen}
+ which is itself inspired by tex macro language.
+
+This is not a replacement for:
+
+a) pollen (or racket)
+b) tex, latex or anything related to tex
+c) jinja2 (or any template engine for that matter)
+
+What is it then? Good question, a small library for me
+to fiddle with while I&#39;m not at work. Because I like it,
+I bread it until now and I find it beautiful. I know it&#39;s unfair.
+
+ⵣsection{Getting started}
+
+Here is the current output of ⵣcode{azoufzouf --help} command:
+
+ⵣhelp
+
+Yeah it&#39;s pretty minimal, read the source (ⵣcode{azoufzouf.py} is 210 lines)
+to know how to put it to good use. 
+
+Basicaly this tex inspired language is easy to fiddle with from Python.
+
+Here is an ⵣcode{index.azf} the file used to render this page:
+
+ⵣinclude[&#34;index.azf&#34;]
+
+Rendering is actually handled from Python, here is it:
+
+ⵣpython[&#34;main.py&#34;]
+
+ⵣsection{COPYING}
+
+The licensing is very liberal, FRAK IT 14.08 or later, see below:
+
+ⵣinclude[&#34;COPYING&#34;]
+
+The language by itself needs to be improved, but it&#39;s good enough for
+my immediate needs.
+
+That&#39;s all folks!
+
+
+</pre><p class="main paper">
+
+Rendering is actually handled from Python, here is it:
+
+</p><div class="main paper"><div class="highlight"><pre><span class="c">#!/usr/bin/env python3</span>
+<span class="sd">&quot;&quot;&quot;main.py.</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">  main.py build</span>
+<span class="sd">  main.py -h | --help</span>
+<span class="sd">  main.py --version</span>
+
+<span class="sd">Options:</span>
+<span class="sd">  -h --help     Show this screen.</span>
+<span class="sd">  --version     Show version.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">xml.sax.saxutils</span> <span class="kn">import</span> <span class="n">escape</span>
+<span class="kn">from</span> <span class="nn">subprocess</span> <span class="kn">import</span> <span class="n">check_output</span>
+
+<span class="kn">from</span> <span class="nn">docopt</span> <span class="kn">import</span> <span class="n">docopt</span>
+<span class="kn">from</span> <span class="nn">markupsafe</span> <span class="kn">import</span> <span class="n">escape</span>
+
+<span class="kn">from</span> <span class="nn">azoufzouf</span> <span class="kn">import</span> <span class="n">Markup</span>
+
+
+<span class="k">class</span> <span class="nc">HTMLDocBuilder</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+        <span class="c"># command calls are translated to method calls</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="n">dungs</span> <span class="o">=</span> <span class="n">Markup</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s">&#39;index.azf&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">dung</span> <span class="ow">in</span> <span class="n">dungs</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">pprint</span> <span class="kn">import</span> <span class="n">pprint</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">dung</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">dung</span><span class="p">[</span><span class="s">&#39;kind&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;command&#39;</span><span class="p">:</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">dung</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">]</span>
+                <span class="n">method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+                <span class="n">argument</span> <span class="o">=</span> <span class="n">dung</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;argument&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+                <span class="n">text</span> <span class="o">=</span> <span class="n">dung</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;text&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">method</span><span class="p">(</span><span class="n">argument</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">+=</span> <span class="n">output</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">text</span> <span class="o">=</span> <span class="n">dung</span><span class="p">[</span><span class="s">&#39;value&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">text</span><span class="o">.</span><span class="n">isspace</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="n">text</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">last</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">+=</span> <span class="s">&#39;&lt;/p&gt;&#39;</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">+=</span> <span class="s">&#39;&lt;p class=&quot;main paper&quot;&gt;&#39;</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">last</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">+=</span> <span class="s">&#39;&lt;p class=&quot;main paper&quot;&gt;&#39;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">text</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="n">text</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">&#39;index.html.template&#39;</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">template</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;{{ MAIN }}&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">&#39;index.html&#39;</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">ignored</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">+=</span> <span class="s">&#39;&lt;/p&gt;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">check_output</span><span class="p">([</span><span class="s">&quot;azoufzouf&quot;</span><span class="p">,</span> <span class="s">&quot;--help&quot;</span><span class="p">])</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s">&#39;utf-8&#39;</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">escape</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s">&#39;&lt;pre class=&quot;main paper&quot;&gt;</span><span class="si">%s</span><span class="s">&lt;/pre&gt;&#39;</span> <span class="o">%</span> <span class="n">output</span>
+
+    <span class="k">def</span> <span class="nf">section</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">argument</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">+=</span> <span class="s">&#39;&lt;/p&gt;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">return</span> <span class="s">&#39;&lt;h1 class=&quot;main paper&quot;&gt;</span><span class="si">%s</span><span class="s">&lt;/h1&gt;&#39;</span> <span class="o">%</span> <span class="n">text</span>
+
+    <span class="k">def</span> <span class="nf">href</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">argument</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="s">&#39;not-ending-with-two-carriage-return&#39;</span>
+        <span class="k">return</span> <span class="s">&#39;&lt;a href=&quot;</span><span class="si">%s</span><span class="s">&quot;&gt;</span><span class="si">%s</span><span class="s">&lt;/a&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">argument</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ignored</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="s">&#39;not-ending-with-two-carriage-return&#39;</span>
+        <span class="k">return</span> <span class="s">&#39;&lt;code&gt;</span><span class="si">%s</span><span class="s">&lt;/code&gt;&#39;</span> <span class="o">%</span> <span class="n">text</span>
+
+    <span class="k">def</span> <span class="nf">include</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">file</span><span class="p">,</span> <span class="n">ignore</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">+=</span> <span class="s">&#39;&lt;/p&gt;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="nb">file</span> <span class="o">=</span> <span class="nb">file</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="nb">file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">escape</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s">&#39;&lt;pre class=&quot;main paper&quot;&gt;</span><span class="si">%s</span><span class="s">&lt;/pre&gt;&#39;</span> <span class="o">%</span> <span class="n">output</span>
+
+    <span class="k">def</span> <span class="nf">python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">file</span><span class="p">,</span> <span class="n">ignored</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">+=</span> <span class="s">&#39;&lt;/p&gt;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="nb">file</span> <span class="o">=</span> <span class="nb">file</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c">#file = os.path.abspath(file)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="s">&#39;pygmentize -f html </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">file</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">check_output</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s">&#39;utf-8&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s">&#39;&lt;div class=&quot;main paper&quot;&gt;</span><span class="si">%s</span><span class="s">&lt;/div&gt;&#39;</span> <span class="o">%</span> <span class="n">output</span>
+        
+        
+
+<span class="k">def</span> <span class="nf">dispatch</span><span class="p">(</span><span class="n">arguments</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">arguments</span><span class="p">[</span><span class="s">&#39;build&#39;</span><span class="p">]:</span>
+        <span class="n">HTMLDocBuilder</span><span class="p">()</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="s">&#39;Oops! What did happen here?! Please fill &#39;</span>
+        <span class="n">message</span> <span class="o">+=</span> <span class="s">&#39;a bug report with a lot of details using DEBUG=FIXME &#39;</span>
+        <span class="n">message</span> <span class="o">+=</span> <span class="s">&#39;and send output at amirouche@hypermove.net&#39;</span>
+        <span class="n">message</span> <span class="o">+=</span> <span class="s">&#39;, thanks!&#39;</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+
+
+
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="n">docopt</span><span class="p">(</span><span class="n">__doc__</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&#39;14.08-dev Hanging Gardens&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;DEBUG&#39;</span><span class="p">,</span> <span class="bp">False</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span>
+    <span class="n">dispatch</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div></p><h1 class="main paper">COPYING</h1><p class="main paper">
+
+The licensing is very liberal, FRAK IT 14.08 or later, see below:
+
+</p><pre class="main paper">                    FRAK IT TO PUBLIC LICENSE
+                          Version 14.08
+
+ Copyright (C) 2014 Amirouche Boubekki &lt;amirouche@hypermove.net&gt;
+
+ Everyone is permitted to copy and distribute verbatim or modified
+ copies of this license document, and changing it is allowed as long
+ as the name is changed.
+
+                      FRAK IT TO PUBLIC LICENSE
+   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+
+  0. Do what the FRAK you can do.
+  1. Do FRAK what the FRAK you can do
+  3. Do FRAK what the FRAK you can FRAK do
+</pre><p class="main paper">
+
+The language by itself needs to be improved, but it's good enough for
+my immediate needs.
+
+That's all folks!
+
+
+
+    <div id="footer" class="paper">
+      Proudly built by <a href="https://warehouse.python.org/project/azoufzouf">azoufzouf</a>.
+    </div>
+  </body>
+</html>
