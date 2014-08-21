@@ -4,20 +4,19 @@ from setuptools import setup, find_packages
 
 setup(
     name='azoufzouf',
-    version='14.08-dev',
+    version='14.08',
     author='Amirouche Boubekki',
     author_email='amirouche@hypermove.net',
     description='Opinionated markup language',
-    packages = ['azoufzouf'],
+    py_modules= ['azoufzouf'],
     zip_safe=False,
-    license='AGPL',
+    license='frak it!',
     install_requires=[
         'docopt',
-        'unicode-slugify',
     ],
     entry_points={
         'console_scripts': [
-            'azoufzouf = azoufzouf.main:main',
+            'azoufzouf = azoufzouf:main',
         ]
     },
     classifiers=[

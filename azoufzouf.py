@@ -1,4 +1,41 @@
-#!/usr/bin/env python3
+#! /usr/bin/env python3
+
+# Copyright © 2014 Amirouche Boubekki <amirouche@hypermove.net>
+# This work is free. You can redistribute it and/or modify it under the
+# terms of the Frak It To Public License, Version 14.08 or later.
+#
+#
+#                    FRAK IT TO PUBLIC LICENSE
+#                          Version 14.08
+
+# Copyright (C) 2014 Amirouche Boubekki <amirouche@hypermove.net>
+
+# Everyone is permitted to copy and distribute verbatim or modified
+# copies of this license document, and changing it is allowed as long
+# as the name is changed.
+
+#                    FRAK IT TO PUBLIC LICENSE
+#   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+
+#  0. Do what the FRAK you can do.
+#  1. Do FRAK what the FRAK you can do
+#  3. Do FRAK what the FRAK you can FRAK do
+"""azoufzouf.
+
+Usage:
+  azoufzouf <path> [<output>]
+  azoufzouf -h | --help
+  azoufzouf --version
+
+Options:
+  -h --help     Show this screen.
+  --version     Show version.
+"""
+import os
+import sys
+from json import dumps
+
+from docopt import docopt
 
 
 class Markup:
@@ -138,10 +175,34 @@ class Markup:
                     return dict(kind='text', value=output)
 
 
+def dung(arguments):
+    path = arguments['<path>']
+    markup = Markup.parse(path)
+    json = dumps(list(markup), indent=4)
+    # dispatch options
+    output = arguments['<output>']
+    if output:
+        with open(output, 'w') as f:
+            f.write(json)
+    else:
+        print(json)
+
+def dispatch(arguments):
+    if arguments['<path>']:
+        dung(arguments)
+    else:
+        message = 'Oops! What did happen here?! Please fill '
+        message += 'a bug report with a lot of details using DEBUG=FIXME '
+        message += 'and send output at amirouche@hypermove.net'
+        message += ', thanks!'
+        raise Exception(message)
+
+
 def main():
-    from json import dumps
-    p = Markup.parse('example.pollen')
-    print(dumps(list(p)))
+    arguments = docopt(__doc__, version='14.08-dev Hanging Gardens')
+    if os.environ.get('DEBUG', False):
+        print(arguments)
+    dispatch(arguments)
 
 
 if __name__ == '__main__':
