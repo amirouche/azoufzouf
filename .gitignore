@@ -1,0 +1,6 @@
+*~
+output/
+*pyc
+*pid
+draft/
+build/
