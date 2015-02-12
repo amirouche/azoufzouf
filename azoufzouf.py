@@ -1,209 +1,393 @@
-#! /usr/bin/env python3
-
-# Copyright © 2014 Amirouche Boubekki <amirouche@hypermove.net>
-# This work is free. You can redistribute it and/or modify it under the
-# terms of the Frak It To Public License, Version 14.08 or later.
-#
-#
-#                    FRAK IT TO PUBLIC LICENSE
-#                          Version 14.08
-
-# Copyright (C) 2014 Amirouche Boubekki <amirouche@hypermove.net>
-
-# Everyone is permitted to copy and distribute verbatim or modified
-# copies of this license document, and changing it is allowed as long
-# as the name is changed.
-
-#                    FRAK IT TO PUBLIC LICENSE
-#   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
-
-#  0. Do what the FRAK you can do.
-#  1. Do FRAK what the FRAK you can do
-#  3. Do FRAK what the FRAK you can FRAK do
-"""azoufzouf.
-
-Usage:
-  azoufzouf <path> [<output>]
-  azoufzouf -h | --help
-  azoufzouf --version
-
-Options:
-  -h --help     Show this screen.
-  --version     Show version.
-"""
+#!/usr/bin/env python3
 import os
-import sys
-from json import dumps
+
+from html import escape
+from functools import wraps
+from contextlib import contextmanager
 
 from docopt import docopt
+from jinja2 import Environment
+from jinja2 import FileSystemLoader
 
 
-class Markup:
+class EndOfFile(Exception):
+    pass
 
-    @classmethod
-    def parse(cls, file):
-        with open(file) as f:
-            string = f.read()
-        return cls(string)
 
-    def __init__(self, string):
-        self.source = string
-        self.context = dict()
-        self.position = 0
-        self.context = dict()
+class AzoufzoufException(Exception):
+    pass
 
-    def has_next(self):
-        return self.position < len(self.source)
+
+class StringNavigator(object):
+
+    def __init__(self, source):
+        self.position = -1
+        self.source = source
 
     def next(self):
-        if self.position > len(self.source):
-            raise StopIteration
-        else:
-            self.position += 1
-            if self.position == len(self.source):
-                raise StopIteration
-            else:
-                try:
-                    return self.source[self.position]
-                except IndexError:
-                    raise StopIteration
+        self.position += 1
+        try:
+            return self.source[self.position]
+        except IndexError:
+            raise EndOfFile
 
-    def peek(self, relative=0):
-        return self.source[self.position + relative]
+    def back(self):
+        self.position -= 1
 
-    def __iter__(self):
-        next = self.peek()
+    def takewhile(self, predicate):
+        out = ''
         while True:
-            if next == 'ⵣ':
-                command = self._command()
-                if command['name'] == 'set':
-                    # update context
-                    key = command['argument'][1:-1]
-                    value = command['text']
-                    self.context[key] = value
-                    # recurse to find something that is not a ``set`` command
-                    yield from self.__iter__()
-                else:
-                    try:
-                        argument = command['argument']
-                    except KeyError:
-                        pass
-                    else:
-                        if argument[0] != '"':
-                            # argument is not a string, retrieve value
-                            # in context
-                            argument = self.context[argument]
-                            command['argument'] = argument
-                    finally:
-                        yield command
-            else:
-                yield self._text()
             try:
-                next = self.peek()
-            except IndexError:
-                raise StopIteration
-
-    def _command(self):
-        output = dict(kind='command')
-        name = self._command_name()
-        output['name'] = name
-        try:
-            argument = self._command_argument()
-        except Exception as e:
-            pass
-        else:
-            output['argument'] = argument
-        try:
-            text = self._command_text()
-        except Exception as e:
-            pass
-        else:
-            output['text'] = text
-        return output
-
-    def _command_name(self):
-        name = ''
-        while True:
-            next = self.next()
-            if next.isalpha():
-                name += next
+                char = self.next()
+            except EndOfFile:
+                return out, EndOfFile
             else:
-                return name
-
-    def _command_argument(self):
-        if self.peek() != '[':
-            raise Exception('no arguments')
-        argument = self.next()
-        while True:
-            next = self.next()
-            if next != ']':
-                argument += next
-            else:
-                self.next()  # consume closing bracket
-                return argument
-
-    def _command_text(self):
-        next = self.peek()
-        if next != '{':
-            raise Exception('no text')
-        else:
-            text = ''
-            next = self.next()
-            while True:
-                if next == '}':
-                    self.next()  # consume closing bracket
-                    return text
+                if predicate(char):
+                    out += char
                 else:
-                    text += next
-                    next = self.next()
+                    return out, char
 
-    def _text(self):
-        output = self.peek()
-        next = self.next()
-        while True:
-            if next == 'ⵣ' and self.peek(1) == 'ⵣ':
-                output += next
-                self.next()  # consume escape char
-                next = self.next()
-            elif next == 'ⵣ':
-                return dict(kind='text', value=output)
-            else:
-                output += next
+
+def parse(source, command_character="ⵣ"):
+    source = StringNavigator(source)
+    eol_count = 1
+    while True:
+        text, why = source.takewhile(lambda char: char not in (command_character, '\n'))
+
+        if why is EndOfFile and text:
+            yield dict(kind='text', value=text)
+            raise StopIteration
+
+        elif why is EndOfFile:
+            raise StopIteration
+
+        elif why == '\n' and text:
+            yield dict(kind='text', value=text)
+            yield dict(kind='eol')
+
+        elif why == '\n':
+            yield dict(kind='eol')
+
+        elif why == command_character:
+            if text:
+                yield dict(kind='text', value=text)
+
+            name, why = source.takewhile(lambda char: char not in ('{', ' ', '\n', command_character))
+            if why in ('\n', ' ', command_character, EndOfFile):
+                yield dict(kind='command', value=name, arguments=tuple())
+                if why is EndOfFile:
+                    raise StopIteration
+                else:
+                    # avoid consuming the next value's first char
+                    source.back()
+                    continue
+
+            else:  # met a curly brace, parse arguments
+                nesting_level = 1
+                arguments = list()
+                argument = ''
+                while True:
+                    # parse one argument
+                    content, why = source.takewhile(lambda char: char not in ('{', '}'))
+                    if why is '{':
+                        nesting_level += 1
+                        argument += content + why
+                    elif why == '}' and (nesting_level - 1) > 0:
+                        nesting_level -= 1
+                        argument += content + why
+                    else:
+                        argument += content
+                        argument = list(parse(argument, command_character))
+                        arguments.append(argument)
+                        try:
+                            next = source.next()
+                        except EndOfFile:
+                            yield dict(kind='command', value=name, arguments=arguments)
+                            raise StopIteration
+                        if next == '{':
+                            nesting_level = 1
+                            argument = ''
+                            # there is at least one more arguments to parse
+                            continue
+                        else:
+                            # End of command, there is more text to parse,
+                            # avoid consuming the next value's first char.
+                            source.back()
+                            yield dict(kind='command', value=name, arguments=arguments)
+                            break
+
+        else:
+            msg = 'Not sure what happened, you might consider requesting a hearing to the king...'
+            raise Exception(mg)
+
+
+def is_paragraph(func):
+    """Declare a command a paragraph to avoid wrapping it in <p> tags"""
+    func.is_paragraph = True
+    return func
+
+
+
+NOMODE, PARAGRAPH, INLINE, VERBATIM = range(4)
+
+def compose(*funcs):
+    def composed(*args):
+        out = funcs[0](*args)
+        for func in funcs[1:]:
+            out = func(out)
+        return out
+    return composed
+
+
+class HTMLRender:
+
+    is_paragraph = is_paragraph
+
+    def __call__(self, source, context, basepath):
+        self._context = dict(**context)
+        self._basepath = basepath
+
+        self._mode = NOMODE   # add link
+        self._space_count = 0
+
+        body = ''.join(self.render(source))
+        self._context['body'] = body
+
+        return self._context
+
+    def _emit(self, value):
+
+        if value == ' ' and self._mode != INLINE:
+            self._space_count += 1
+        elif value == '\n':
+            self._space_count = 0
+            if self._mode == PARAGRAPH:
+                yield '</p>'
+                self._mode = NOMODE
+        else:
+            if self._space_count == 1 and self._mode in (PARAGRAPH, INLINE):
+                yield ' '
+            if self._mode == NOMODE:
+                self._mode = PARAGRAPH
+                yield '<p>'
+            yield from value
+          
+    @contextmanager
+    def _inline(self):
+        previous = self._mode
+        self._mode = INLINE
+        yield
+        self._mode = previous
+
+    @contextmanager
+    def _verbatim(self):
+        previous = self._inline
+        self._mode = VERBATIM
+        yield
+        self._mode = previous
+
+    def render(self, items):
+        """Takes the output of azf.render and yields html strings"""
+        eol_count = 0
+        for item in items:
+            kind = item['kind']
+            if kind == 'command':
+                eol_count = 0
+                command = item['value']
                 try:
-                    next = self.next()
-                except StopIteration:
-                    return dict(kind='text', value=output)
+                    method = getattr(self, command)
+                except AttributeError:
+                    raise AzoufzoufException('Command not found: %s')
+                else:
+                    if getattr(method, 'is_paragraph', False):
+                        with self._inline():
+                            yield from method(*item['arguments'])
+                    else:
+                        yield from method(*item['arguments'])
+            elif kind == 'text':
+                eol_count = 0
+                yield from self._emit(item['value'])
+            elif kind == 'eol' and eol_count == 1:
+                yield from self._emit('\n')
+            elif kind == 'eol':
+                eol_count += 1
+                yield from self._emit(' ')
+            else:
+                msg = 'Not sure what happened, you might consider requesting a hearing to the king...'
+                raise Exception(mg)
+        yield from self._emit('\n')
+        
+    def _highlight(self, lang, code):
+        from pygments import highlight
+        from pygments.lexers import get_lexer_by_name
+        from pygments.formatters import get_formatter_by_name
+        html = get_formatter_by_name('html')
+        lexer = get_lexer_by_name(lang)
+        code = highlight(code, lexer, html)
+        return code
+
+    # start of command definition
+
+    @is_paragraph
+    def title(self, value):
+        yield '<h1>'
+        with self._inline():
+            title = self.render(value)
+        title  = ''.join(title)
+        self._context['title'] = title
+        yield title
+        yield '</h1>'
+
+    # helper function to define h2, h3....
+    def _section(self, tag, value):
+        yield '<%s>' % tag
+        with self._inline():
+            yield from self.render(value)
+        yield '</%s>' % tag
+
+    factory = lambda tag: is_paragraph(lambda self, value: self._section(tag, value))
+
+    section, subsection, subsubsection, subsubsubsection, subsubsubsubsection = map(
+        factory,
+        ('h2', 'h3', 'h4', 'h5', 'h6')
+    )
+
+    def list(self, items):
+        self._space_count = 0
+        yield '<ol>'
+        with self._inline():
+            yield from self.render(items)
+        yield '</ol>'
+
+    def item(self, value):
+        yield '<li>'
+        with self._inline():
+            yield from self.render(value)
+        yield '</li>'
+
+    def href(self, url, text, klass=None):
+        with self._inline():           
+            if klass:
+                url, text, klass = map(compose(self.render, ''.join), (url, text, klass))
+            else:
+                url, text = map(compose(self.render, ''.join), (url, text))
+
+        # maybe url is a reference
+        try:
+            url = self._context[url]
+        except KeyError:
+            pass
+
+        if klass:
+            yield '<a href="%s" class="%s">%s</a>' % (url, klass, text)
+        else:
+            yield '<a href="%s">%s</a>' % (url, text)
+
+    def image(self, url, text):
+        with self._inline():
+            url, text = map(compose(self.render, ''.join), (url, text))
+        yield '<img src="%s" title="%s" />' % (url, text)
+
+    def code(self, text, klass=None):
+        with self._inline():
+            if klass:
+                text, klass = map(compose(self.render, ''.join), (text, klass))
+                text = escape(text)
+                yield '<code class="%"s>%s</code>' % (klass, text)
+            else:
+                text = ''.join(self.render(text))
+                yield text
+    
+    def include(self, value, download=None):
+        with self._inline():
+            filepath = ''.join(self.render(value))
+
+        with open(os.path.join(self._basepath, filepath)) as f:
+            code = f.read()
+        _, lang = os.path.splitext(filepath)
+        lang = lang[1:]
+        code = self._highlight(lang, code)
+        code = '<div class=include>%s</div>' % code
+        yield code
+
+    def require(self, filepath):
+        with self._inline():
+            filepath = ''.join(self.render(filepath))
+        filepath = os.path.join(self._basepath, filename)
+        basepath = os.path.dirname(filepath)
+        output = render(filepath, dict(self._context), basepath)
+        body = output['body']
+        return body
+
+    def context(self, value):
+        with self._inline():
+            value = ''.join(self.render(value))
+        yield self._context[value]
+
+    def highlight(self, lang, value):
+        with self._inline():
+            lang, code = map(compose(self.render, ''.join), (lang, value))
+        code = self._highlight(lang, code)
+        yield code
 
 
-def dung(arguments):
-    path = arguments['<path>']
-    markup = Markup.parse(path)
-    json = dumps(list(markup), indent=4)
-    # dispatch options
-    output = arguments['<output>']
-    if output:
-        with open(output, 'w') as f:
-            f.write(json)
-    else:
-        print(json)
+class JinjaRender:
 
-def dispatch(arguments):
-    if arguments['<path>']:
-        dung(arguments)
-    else:
-        message = 'Oops! What did happen here?! Please fill '
-        message += 'a bug report with a lot of details using DEBUG=FIXME '
-        message += 'and send output at amirouche@hypermove.net'
-        message += ', thanks!'
-        raise Exception(message)
+    def __init__(self, *paths, **filters):
+        paths = map(os.path.abspath, paths)
+        self.environment = Environment(
+            loader=FileSystemLoader(paths),
+        )
+        environment.filters.update(filters)
+
+    def __call__(self, template, context):
+        template = environment.get_template(template)
+        out = template.render(**context)
+        return out
 
 
-def main():
-    arguments = docopt(__doc__, version='14.08-dev Hanging Gardens')
-    if os.environ.get('DEBUG', False):
-        print(arguments)
-    dispatch(arguments)
+def render_jinja(template, context, *paths, **filters):
+    render = JinjaRender(*paths, **filters)
+    oupput = render(template, context)
+    return output
+
+
+_render = HTMLRender()
+
+
+def render(source, context=None, basepath=None):
+    """render a azf string to html using the default html renderer"""
+    if not context:
+        context = dict()
+
+    tokens = parse(source)
+    output = _render(tokens, context, basepath=None)
+    return output
 
 
 if __name__ == '__main__':
-    main()
+    # main.py publish note <path>
+    # main.py publish page <path>
+    # main.py dung <path> [<output>] [--pretty-print=<indent>] [--ugly]
+    # main.py render html <path>
+    # main.py render jinja2 <template> <context> <output>
+    # main.py build
+
+    doc = """make.py.
+
+Usage:
+  make.py build --dev
+  make.py build [<path>]
+  make.py -h | --help
+  make.py --version
+
+Options:
+  -h --help               Show this screen.
+  --version               Show version.
+"""
+    arguments = docopt(doc, version='15.01.29')
+    print(arguments)
+    main(arguments)
+
+
+# TEST ################################################################################################
