@@ -1,1 +1,2 @@
-- end of line/pagagraph should have an extra space only if required
+- move to "def render(source, basepath=None, **context)"
+- check hightlight & include output

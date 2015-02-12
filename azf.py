@@ -9,6 +9,11 @@ from docopt import docopt
 from jinja2 import Environment
 from jinja2 import FileSystemLoader
 
+from pygments import highlight
+from pygments.lexers import get_lexer_by_name
+from pygments.formatters import get_formatter_by_name
+from pygments.util import ClassNotFound
+
 
 class EndOfFile(Exception):
     pass
@@ -117,8 +122,8 @@ def parse(source, command_character="ⵣ"):
                             break
 
         else:
-            msg = 'Not sure what happened, you might consider requesting a hearing to the king...'
-            raise Exception(mg)
+            msg = 'Not sure what happened, you should ask a hearing to the king...'
+            raise AzoufzoufException(mg)
 
 
 def is_paragraph(func):
@@ -137,6 +142,9 @@ def compose(*funcs):
             out = func(out)
         return out
     return composed
+
+
+pygments_html_formatter = get_formatter_by_name('html')
 
 
 class HTMLRender:
@@ -164,6 +172,8 @@ class HTMLRender:
             if self._mode == PARAGRAPH:
                 yield '</p>'
                 self._mode = NOMODE
+            elif self._mode == VERBATIM:
+                yield '\n'
         else:
             if self._space_count == 1 and self._mode in (PARAGRAPH, INLINE):
                 yield ' '
@@ -197,7 +207,7 @@ class HTMLRender:
                 try:
                     method = getattr(self, command)
                 except AttributeError:
-                    raise AzoufzoufException('Command not found: %s')
+                    raise AzoufzoufException('Unknown command: %s' % command)
                 else:
                     if getattr(method, 'is_paragraph', False):
                         with self._inline():
@@ -207,24 +217,25 @@ class HTMLRender:
             elif kind == 'text':
                 eol_count = 0
                 yield from self._emit(item['value'])
+            elif kind == 'eol' and self._mode == VERBATIM:
+                yield from self._emit('\n')
             elif kind == 'eol' and eol_count == 1:
                 yield from self._emit('\n')
             elif kind == 'eol':
                 eol_count += 1
                 yield from self._emit(' ')
             else:
-                msg = 'Not sure what happened, you might consider requesting a hearing to the king...'
-                raise Exception(mg)
+                msg = 'Not sure what happened, you should ask a hearing to the king...'
+                raise AzoufzoufException(mg)
         yield from self._emit('\n')
         
     def _highlight(self, lang, code):
-        from pygments import highlight
-        from pygments.lexers import get_lexer_by_name
-        from pygments.formatters import get_formatter_by_name
-        html = get_formatter_by_name('html')
-        lexer = get_lexer_by_name(lang)
-        code = highlight(code, lexer, html)
-        return code
+        try:
+            lexer = get_lexer_by_name(lang)
+        except ClassNotFound:
+            return '<pre>%s</pre>' % code
+        else:
+            return highlight(code, lexer, pygments_html_formatter)
 
     # start of command definition
 
@@ -293,12 +304,12 @@ class HTMLRender:
             if klass:
                 text, klass = map(compose(self.render, ''.join), (text, klass))
                 text = escape(text)
-                yield '<code class="%"s>%s</code>' % (klass, text)
+                yield '<code class="%s">%s</code>' % (klass, text)
             else:
                 text = ''.join(self.render(text))
-                yield text
+                yield '<code>%s</code>' % text
     
-    def include(self, value, download=None):
+    def include(self, value):
         with self._inline():
             filepath = ''.join(self.render(value))
 
@@ -310,12 +321,14 @@ class HTMLRender:
         code = '<div class=include>%s</div>' % code
         yield code
 
+    @is_paragraph        
     def require(self, filepath):
         with self._inline():
             filepath = ''.join(self.render(filepath))
-        filepath = os.path.join(self._basepath, filename)
-        basepath = os.path.dirname(filepath)
-        output = render(filepath, dict(self._context), basepath)
+        fullpath = os.path.join(self._basepath, filepath)
+        basepath = os.path.dirname(fullpath)
+        with open(fullpath) as f:
+            output = render(f.read(), dict(self._context), basepath)
         body = output['body']
         return body
 
@@ -324,32 +337,15 @@ class HTMLRender:
             value = ''.join(self.render(value))
         yield self._context[value]
 
-    def highlight(self, lang, value):
+    @is_paragraph
+    def highlight(self, lang, code):
         with self._inline():
-            lang, code = map(compose(self.render, ''.join), (lang, value))
+            lang = ''.join(self.render(lang))
+        with self._verbatim():
+            code = ''.join(self.render(code))
+        print('lang', lang.split('\n'))
         code = self._highlight(lang, code)
         yield code
-
-
-class JinjaRender:
-
-    def __init__(self, *paths, **filters):
-        paths = map(os.path.abspath, paths)
-        self.environment = Environment(
-            loader=FileSystemLoader(paths),
-        )
-        environment.filters.update(filters)
-
-    def __call__(self, template, context):
-        template = environment.get_template(template)
-        out = template.render(**context)
-        return out
-
-
-def render_jinja(template, context, *paths, **filters):
-    render = JinjaRender(*paths, **filters)
-    oupput = render(template, context)
-    return output
 
 
 _render = HTMLRender()
@@ -359,35 +355,55 @@ def render(source, context=None, basepath=None):
     """render a azf string to html using the default html renderer"""
     if not context:
         context = dict()
-
     tokens = parse(source)
-    output = _render(tokens, context, basepath=None)
+    output = _render(tokens, context, basepath)
+    return output
+
+        
+class JinjaRender:
+
+    def __init__(self, *paths, **filters):
+        paths = map(os.path.abspath, paths)
+        self.environment = Environment(
+            loader=FileSystemLoader(paths),
+        )
+        self.environment.filters.update(filters)
+
+    def __call__(self, template, context):
+        template = self.environment.get_template(template)
+        out = template.render(**context)
+        return out
+
+
+def jinja(template, context, *paths, **filters):
+    render = JinjaRender(*paths, **filters)
+    output = render(template, context)
     return output
 
 
-if __name__ == '__main__':
-    # main.py publish note <path>
-    # main.py publish page <path>
-    # main.py dung <path> [<output>] [--pretty-print=<indent>] [--ugly]
-    # main.py render html <path>
-    # main.py render jinja2 <template> <context> <output>
-    # main.py build
+# if __name__ == '__main__':
+#     # main.py publish note <path>
+#     # main.py publish page <path>
+#     # main.py dung <path> [<output>] [--pretty-print=<indent>] [--ugly]
+#     # main.py render html <path>
+#     # main.py render jinja2 <template> <context> <output>
+#     # main.py build
 
-    doc = """make.py.
+#     doc = """make.py.
 
-Usage:
-  make.py build --dev
-  make.py build [<path>]
-  make.py -h | --help
-  make.py --version
+# Usage:
+#   make.py build --dev
+#   make.py build [<path>]
+#   make.py -h | --help
+#   make.py --version
 
-Options:
-  -h --help               Show this screen.
-  --version               Show version.
-"""
-    arguments = docopt(doc, version='15.01.29')
-    print(arguments)
-    main(arguments)
+# Options:
+#   -h --help               Show this screen.
+#   --version               Show version.
+# """
+#     arguments = docopt(doc, version='15.01.29')
+#     print(arguments)
+#     main(arguments)
 
 
-# TEST ################################################################################################
+# # TEST ################################################################################################

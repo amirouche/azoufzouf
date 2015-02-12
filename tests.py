@@ -1,15 +1,18 @@
+import os
+from tempfile import mkdtemp
 from unittest import TestCase
+from shutil import rmtree
 
 from azf import parse
 from azf import render
+from azf import jinja
+from azf import AzoufzoufException
 
 from json import dumps
 
 
 class TestParser(TestCase):
 
-    maxDiff = None
-    
     def test_single_line(self):
         text = """héllo there what happened to you lately?"""
         output = list(parse(text))
@@ -309,8 +312,11 @@ return a+b+c;
 
 class TestHTMLRender(TestCase):
     
-    maxDiff = None
-
+    def test_unknown_command(self):
+        text = """héllo there what happened to ⵣyou lately?"""
+        with self.assertRaises(AzoufzoufException):
+            render(text)
+    
     def test_single_line(self):
         text = """héllo there what happened to you lately?"""
         output = render(text)['body']
@@ -397,3 +403,105 @@ a thing from me.
         text = 'ⵣimage{http://URL}{TEXT}'
         output = render(text)['body']
         self.assertEqual(output, '<img src="http://URL" title="TEXT" />')
+
+    def test_code(self):
+        text = 'ⵣcode{reduce}'
+        output = render(text)['body']
+        self.assertEqual(output, '<code>reduce</code>')
+
+    def test_code_with_klass(self):
+        text = 'ⵣcode{reduce}{python}'
+        output = render(text)['body']
+        self.assertEqual(output, '<code class="python">reduce</code>')
+        
+    def test_nested_code_in_section(self):
+        text = 'ⵣsection{how ⵣcode{reduce} works}'
+        output = render(text)['body']
+        self.assertEqual(output, '<h2>how <code>reduce</code> works</h2>')
+
+    def test_nested_code_in_section_start(self):
+        text = 'ⵣsection{ⵣcode{reduce} is awesome}'
+        output = render(text)['body']
+        self.assertEqual(output, '<h2><code>reduce</code> is awesome</h2>')
+
+    def test_nested_code_in_section_end(self):
+        text = 'ⵣsection{The awesome ⵣcode{reduce}}'
+        output = render(text)['body']
+        self.assertEqual(output, '<h2>The awesome <code>reduce</code></h2>')
+
+    def test_include(self):
+        path = mkdtemp()
+        with open(os.path.join(path, 'include.js'), 'w') as f:
+            f.write('function troll() { return undefined;}')
+        expected = """<div class=include><div class="highlight"><pre><span class="kd">function</span> <span class="nx">troll</span><span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="kc">undefined</span><span class="p">;}</span>\n</pre></div>\n</div>"""
+        output = render("ⵣinclude{include.js}", basepath=path)['body']        
+        self.assertEqual(output, expected)
+        rmtree(path)
+
+    def test_include_no_lexer(self):
+        path = mkdtemp()
+        with open(os.path.join(path, 'include.azf'), 'w') as f:
+            f.write("""Héllo!
+
+I'd like to be included. Plz!""")
+        expected = "<div class=include><pre>Héllo!\n\nI'd like to be included. Plz!</pre></div>"
+        output = render("ⵣinclude{include.azf}", basepath=path)['body']        
+        self.assertEqual(output, expected)
+        rmtree(path)
+
+    def test_require(self):
+        path = mkdtemp()
+        with open(os.path.join(path, 'part.azf'), 'w') as f:
+            f.write("""ⵣsection{Héllo}
+
+I'd like to join the party. Plz!""")
+        expected = "<p>blabla bla</p><h2>Héllo</h2><p>I'd like to join the party. Plz!</p><p>blabla</p>"
+        output = render("""blabla bla
+
+ⵣrequire{part.azf}
+
+blabla""", basepath=path)['body']
+        self.assertEqual(output, expected)
+        rmtree(path)
+
+    def test_context(self):
+        expected = "<p>Héllo Azoufzouf, you are tested!</p>"
+        output = render(
+            """Héllo ⵣcontext{name}, you are ⵣcontext{status}!""",
+            dict(name="Azoufzouf", status="tested"),
+        )['body']
+        self.assertEqual(output, expected)
+
+    def test_highlight(self):
+        code = """function troll() { 
+    return undefined;
+}"""
+        expected = """<div class="highlight"><pre><span class="kd">function</span> <span class="nx">troll</span><span class="p">()</span> <span class="p">{</span> 
+    <span class="k">return</span> <span class="kc">undefined</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+"""
+        output = render("ⵣhighlight{javascript}{%s}" % code)['body']
+        with open('highlight.txt', 'w') as f:
+            f.write(output)
+        self.assertEqual(output, expected)
+
+
+        
+
+class TestJinja(TestCase):
+    
+    def test_render_jinja(self):
+        def capitalize(s):
+            return s.upper()
+
+        path = mkdtemp()
+        template = 'test.jinja'
+        with open(os.path.join(path, template), 'w') as f:
+            f.write("Héllo {{ name }}, you are {{ status|capitalize }}! {% include 'sig.jinja' %}")
+        with open(os.path.join(path, 'sig.jinja'), 'w') as f:
+            f.write("Bye!")
+        output = jinja(template, dict(name="Azoufazouf", status="tested"), path, capitalize=capitalize)
+        self.assertEqual(output, 'Héllo Azoufazouf, you are TESTED! Bye!')
+        rmtree(path)
+        
