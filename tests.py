@@ -1,8 +1,7 @@
 from unittest import TestCase
 
-from azoufzouf import parse
-from azoufzouf import render
-
+from azf import parse
+from azf import render
 
 from json import dumps
 
