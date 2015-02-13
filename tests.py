@@ -4,11 +4,22 @@ from unittest import TestCase
 from shutil import rmtree
 
 from azf import parse
-from azf import render
-from azf import jinja
+from azf import HTML
+from azf import Jinja
 from azf import AzoufzoufException
 
 from json import dumps
+
+
+# lazy fixes to support new render signature
+def render(source, context=None, basepath=None):
+    if not context:
+        context = dict()
+    return HTML.render(source, basepath, **context)
+
+def jinja(template, context, *paths, **filters):
+    return Jinja.render(template, *paths, filters=filters, **context)
+
 
 
 class TestParser(TestCase):
@@ -42,18 +53,18 @@ a thing from me.
         output = list(parse(text))
         expected = [
             {'kind': 'text', 'value': 'héllo there what happened to you lately? I know'},
-            {'kind': 'eol'},            
+            {'kind': 'eol'},
             {'kind': 'text', 'value': "you have been up to something, don't you?"},
             {'kind': 'eol'},
-            {'kind': 'eol'},            
+            {'kind': 'eol'},
             {'kind': 'text', 'value': "You don't want to tell me? So do I! You won't hear"},
-            {'kind': 'eol'},            
+            {'kind': 'eol'},
             {'kind': 'text', 'value': "a thing from me."},
-            {'kind': 'eol'},            
+            {'kind': 'eol'},
         ]
         self.assertEqual(output, expected)
 
-        
+
     def test_text_with_dash_over_several_lines(self):
         text = """- héllo there what happened to you lately?
 - So much :)
@@ -102,9 +113,9 @@ a thing from me.
         output = list(parse(text))
         expected = [
             {'value': 'AAA', 'arguments': (), 'kind': 'command'},
-            {'value': ' ', 'kind': 'text'},            
+            {'value': ' ', 'kind': 'text'},
             {'value': 'BBB', 'arguments': (), 'kind': 'command'},
-            {'value': ' ', 'kind': 'text'},                        
+            {'value': ' ', 'kind': 'text'},
             {'value': 'CCC', 'arguments': (), 'kind': 'command'},
         ]
         self.assertEqual(expected, output)
@@ -117,8 +128,8 @@ a thing from me.
             {'value': 'BBB', 'arguments': (), 'kind': 'command'},
             {'value': 'CCC', 'arguments': (), 'kind': 'command'},
         ]
-        self.assertEqual(expected, output)     
-        
+        self.assertEqual(expected, output)
+
     def test_several_commands_with_arguments_and_without_space(self):
         text = """ⵣAAA{111}{222}ⵣBBB{333}{444}"""
         output = list(parse(text))
@@ -140,7 +151,7 @@ a thing from me.
             },
         ]
         self.assertEqual(expected, output)
-        
+
     def test_command_without_args(self):
         text = """AAA ⵣBBB CCC"""
         output = list(parse(text))
@@ -311,12 +322,18 @@ return a+b+c;
 
 
 class TestHTMLRender(TestCase):
-    
+
     def test_unknown_command(self):
         text = """héllo there what happened to ⵣyou lately?"""
         with self.assertRaises(AzoufzoufException):
             render(text)
-    
+
+    def test_single_command(self):
+        self.assertEqual("ⵣazecv", "<p>azecv</p>")
+
+    def test_single_command_is_paragraph(self):
+        self.assertEqual("ⵣazecv", "azecv")
+
     def test_single_line(self):
         text = """héllo there what happened to you lately?"""
         output = render(text)['body']
@@ -373,11 +390,11 @@ a thing from me.
 """
         output = render(text)['body']
         self.assertEqual(output, '<ol>   <li>eggs</li>   <li>apple</li>   <li>lettuce</li>   <li>what else ?</li> </ol>')
-        
+
     def test_nested_list(self):
         text = """
 ⵣlist{
-  ⵣitem{vegatables 
+  ⵣitem{vegatables
     ⵣlist{
       ⵣitem{tomato}
       ⵣitem{lettuce}
@@ -413,7 +430,7 @@ a thing from me.
         text = 'ⵣcode{reduce}{python}'
         output = render(text)['body']
         self.assertEqual(output, '<code class="python">reduce</code>')
-        
+
     def test_nested_code_in_section(self):
         text = 'ⵣsection{how ⵣcode{reduce} works}'
         output = render(text)['body']
@@ -434,7 +451,7 @@ a thing from me.
         with open(os.path.join(path, 'include.js'), 'w') as f:
             f.write('function troll() { return undefined;}')
         expected = """<div class=include><div class="highlight"><pre><span class="kd">function</span> <span class="nx">troll</span><span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="kc">undefined</span><span class="p">;}</span>\n</pre></div>\n</div>"""
-        output = render("ⵣinclude{include.js}", basepath=path)['body']        
+        output = render("ⵣinclude{include.js}", basepath=path)['body']
         self.assertEqual(output, expected)
         rmtree(path)
 
@@ -445,7 +462,7 @@ a thing from me.
 
 I'd like to be included. Plz!""")
         expected = "<div class=include><pre>Héllo!\n\nI'd like to be included. Plz!</pre></div>"
-        output = render("ⵣinclude{include.azf}", basepath=path)['body']        
+        output = render("ⵣinclude{include.azf}", basepath=path)['body']
         self.assertEqual(output, expected)
         rmtree(path)
 
@@ -473,24 +490,51 @@ blabla""", basepath=path)['body']
         self.assertEqual(output, expected)
 
     def test_highlight(self):
-        code = """function troll() { 
+        code = """function troll() {
     return undefined;
 }"""
-        expected = """<div class="highlight"><pre><span class="kd">function</span> <span class="nx">troll</span><span class="p">()</span> <span class="p">{</span> 
+        expected = """<div class="highlight"><pre><span class="kd">function</span> <span class="nx">troll</span><span class="p">()</span> <span class="p">{</span>
     <span class="k">return</span> <span class="kc">undefined</span><span class="p">;</span>
 <span class="p">}</span>
 </pre></div>
 """
         output = render("ⵣhighlight{javascript}{%s}" % code)['body']
-        with open('highlight.txt', 'w') as f:
-            f.write(output)
         self.assertEqual(output, expected)
 
+    def test_custom_formatter(self):
 
-        
+        class CustomFormatter(HTML):
+
+            HTML.is_paragraph
+            def mycommand(self):
+                yield "MYCOMMAND IS WORKING!"
+
+        expected = "MYCOMMAND IS WORKING!"
+        output = CustomFormatter.render("ⵣmycommand")['body']
+        self.assertEqual(output, expected)
+
+    def test_custom_formatter_with_require(self):
+
+        class CustomFormatter(HTML):
+
+            def mycommand(self):
+                yield "MYCOMMAND IS WORKING!"
+
+        expected = "MYCOMMAND IS WORKING!"
+        path = mkdtemp()
+        with open(os.path.join(path, 'extra.azf'), 'w') as f:
+            f.write("""
+
+ⵣmycommand
+
+""")
+        output = CustomFormatter.render("ⵣrequire{extra.azf}", path)['body']
+        self.assertEqual(output, expected)
+        rmtree(path)
+
 
 class TestJinja(TestCase):
-    
+
     def test_render_jinja(self):
         def capitalize(s):
             return s.upper()
@@ -504,4 +548,3 @@ class TestJinja(TestCase):
         output = jinja(template, dict(name="Azoufazouf", status="tested"), path, capitalize=capitalize)
         self.assertEqual(output, 'Héllo Azoufazouf, you are TESTED! Bye!')
         rmtree(path)
-        

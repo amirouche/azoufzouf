@@ -1,2 +1,2 @@
-- move to "def render(source, basepath=None, **context)"
 - check hightlight & include output
+- single line commands are never get wrapped in paragraphs

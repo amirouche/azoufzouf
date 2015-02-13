@@ -132,8 +132,8 @@ def is_paragraph(func):
     return func
 
 
-
 NOMODE, PARAGRAPH, INLINE, VERBATIM = range(4)
+
 
 def compose(*funcs):
     def composed(*args):
@@ -147,9 +147,17 @@ def compose(*funcs):
 pygments_html_formatter = get_formatter_by_name('html')
 
 
-class HTMLRender:
+class HTML:
 
     is_paragraph = is_paragraph
+
+    @classmethod
+    def render(cls, source, basepath=None, **context):
+        """render a azf string to html"""
+        tokens = parse(source)
+        _render = cls()
+        output = _render(tokens, context, basepath)
+        return output
 
     def __call__(self, source, context, basepath):
         self._context = dict(**context)
@@ -158,10 +166,57 @@ class HTMLRender:
         self._mode = NOMODE   # add link
         self._space_count = 0
 
-        body = ''.join(self.render(source))
+        body = ''.join(self.to_html(source))
         self._context['body'] = body
 
         return self._context
+
+    @contextmanager
+    def _inline(self):
+        previous = self._mode
+        self._mode = INLINE
+        yield
+        self._mode = previous
+
+    @contextmanager
+    def _verbatim(self):
+        previous = self._inline
+        self._mode = VERBATIM
+        yield
+        self._mode = previous
+
+    def to_html(self, tokens):
+        """Takes the output of azf.parse and yields html strings"""
+        eol_count = 0
+        for token in tokens:
+            kind = token['kind']
+            if kind == 'command':
+                eol_count = 0
+                command = token['value']
+                try:
+                    method = getattr(self, command)
+                except AttributeError:
+                    raise AzoufzoufException('Unknown command: %s' % command)
+                else:
+                    if getattr(method, 'is_paragraph', False):
+                        with self._inline():
+                            yield from method(*token['arguments'])
+                    else:
+                        yield from method(*token['arguments'])
+            elif kind == 'text':
+                eol_count = 0
+                yield from self._emit(token['value'])
+            elif kind == 'eol' and self._mode == VERBATIM:
+                yield from self._emit('\n')
+            elif kind == 'eol' and eol_count == 1:
+                yield from self._emit('\n')
+            elif kind == 'eol':
+                eol_count += 1
+                yield from self._emit(' ')
+            else:
+                msg = 'Not sure what happened, you should ask a hearing to the king...'
+                raise AzoufzoufException(mg)
+        yield from self._emit('\n')
 
     def _emit(self, value):
 
@@ -181,54 +236,8 @@ class HTMLRender:
                 self._mode = PARAGRAPH
                 yield '<p>'
             yield from value
-          
-    @contextmanager
-    def _inline(self):
-        previous = self._mode
-        self._mode = INLINE
-        yield
-        self._mode = previous
 
-    @contextmanager
-    def _verbatim(self):
-        previous = self._inline
-        self._mode = VERBATIM
-        yield
-        self._mode = previous
 
-    def render(self, items):
-        """Takes the output of azf.render and yields html strings"""
-        eol_count = 0
-        for item in items:
-            kind = item['kind']
-            if kind == 'command':
-                eol_count = 0
-                command = item['value']
-                try:
-                    method = getattr(self, command)
-                except AttributeError:
-                    raise AzoufzoufException('Unknown command: %s' % command)
-                else:
-                    if getattr(method, 'is_paragraph', False):
-                        with self._inline():
-                            yield from method(*item['arguments'])
-                    else:
-                        yield from method(*item['arguments'])
-            elif kind == 'text':
-                eol_count = 0
-                yield from self._emit(item['value'])
-            elif kind == 'eol' and self._mode == VERBATIM:
-                yield from self._emit('\n')
-            elif kind == 'eol' and eol_count == 1:
-                yield from self._emit('\n')
-            elif kind == 'eol':
-                eol_count += 1
-                yield from self._emit(' ')
-            else:
-                msg = 'Not sure what happened, you should ask a hearing to the king...'
-                raise AzoufzoufException(mg)
-        yield from self._emit('\n')
-        
     def _highlight(self, lang, code):
         try:
             lexer = get_lexer_by_name(lang)
@@ -243,8 +252,7 @@ class HTMLRender:
     def title(self, value):
         yield '<h1>'
         with self._inline():
-            title = self.render(value)
-        title  = ''.join(title)
+            title = ''.join(self.to_html(value))
         self._context['title'] = title
         yield title
         yield '</h1>'
@@ -253,7 +261,7 @@ class HTMLRender:
     def _section(self, tag, value):
         yield '<%s>' % tag
         with self._inline():
-            yield from self.render(value)
+            yield from self.to_html(value)
         yield '</%s>' % tag
 
     factory = lambda tag: is_paragraph(lambda self, value: self._section(tag, value))
@@ -263,25 +271,25 @@ class HTMLRender:
         ('h2', 'h3', 'h4', 'h5', 'h6')
     )
 
-    def list(self, items):
+    def list(self, tokens):
         self._space_count = 0
         yield '<ol>'
         with self._inline():
-            yield from self.render(items)
+            yield from self.to_html(tokens)
         yield '</ol>'
 
     def item(self, value):
         yield '<li>'
         with self._inline():
-            yield from self.render(value)
+            yield from self.to_html(value)
         yield '</li>'
 
     def href(self, url, text, klass=None):
-        with self._inline():           
+        with self._inline():
             if klass:
-                url, text, klass = map(compose(self.render, ''.join), (url, text, klass))
+                url, text, klass = map(compose(self.to_html, ''.join), (url, text, klass))
             else:
-                url, text = map(compose(self.render, ''.join), (url, text))
+                url, text = map(compose(self.to_html, ''.join), (url, text))
 
         # maybe url is a reference
         try:
@@ -296,22 +304,22 @@ class HTMLRender:
 
     def image(self, url, text):
         with self._inline():
-            url, text = map(compose(self.render, ''.join), (url, text))
+            url, text = map(compose(self.to_html, ''.join), (url, text))
         yield '<img src="%s" title="%s" />' % (url, text)
 
     def code(self, text, klass=None):
         with self._inline():
             if klass:
-                text, klass = map(compose(self.render, ''.join), (text, klass))
+                text, klass = map(compose(self.to_html, ''.join), (text, klass))
                 text = escape(text)
                 yield '<code class="%s">%s</code>' % (klass, text)
             else:
-                text = ''.join(self.render(text))
+                text = ''.join(self.to_html(text))
                 yield '<code>%s</code>' % text
-    
+
     def include(self, value):
         with self._inline():
-            filepath = ''.join(self.render(value))
+            filepath = ''.join(self.to_html(value))
 
         with open(os.path.join(self._basepath, filepath)) as f:
             code = f.read()
@@ -321,46 +329,34 @@ class HTMLRender:
         code = '<div class=include>%s</div>' % code
         yield code
 
-    @is_paragraph        
+    @is_paragraph
     def require(self, filepath):
         with self._inline():
-            filepath = ''.join(self.render(filepath))
+            filepath = ''.join(self.to_html(filepath))
         fullpath = os.path.join(self._basepath, filepath)
         basepath = os.path.dirname(fullpath)
         with open(fullpath) as f:
-            output = render(f.read(), dict(self._context), basepath)
+            output = self.render(f.read(), basepath, **self._context)
         body = output['body']
         return body
 
     def context(self, value):
         with self._inline():
-            value = ''.join(self.render(value))
+            value = ''.join(self.to_html(value))
         yield self._context[value]
 
     @is_paragraph
     def highlight(self, lang, code):
         with self._inline():
-            lang = ''.join(self.render(lang))
+            lang = ''.join(self.to_html(lang))
         with self._verbatim():
-            code = ''.join(self.render(code))
+            code = ''.join(self.to_html(code))
         print('lang', lang.split('\n'))
         code = self._highlight(lang, code)
         yield code
 
 
-_render = HTMLRender()
-
-
-def render(source, context=None, basepath=None):
-    """render a azf string to html using the default html renderer"""
-    if not context:
-        context = dict()
-    tokens = parse(source)
-    output = _render(tokens, context, basepath)
-    return output
-
-        
-class JinjaRender:
+class Jinja:
 
     def __init__(self, *paths, **filters):
         paths = map(os.path.abspath, paths)
@@ -374,11 +370,11 @@ class JinjaRender:
         out = template.render(**context)
         return out
 
-
-def jinja(template, context, *paths, **filters):
-    render = JinjaRender(*paths, **filters)
-    output = render(template, context)
-    return output
+    @classmethod
+    def render(cls, template, *paths, filters=None, **context):
+        render = cls(*paths, **filters)
+        output = render(template, context)
+        return output
 
 
 # if __name__ == '__main__':
