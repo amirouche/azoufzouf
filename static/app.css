@@ -2,8 +2,8 @@
 
 .paper
 {
-  	position:relative;       
-	box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.5), 0px 0px 40px rgba(0, 0, 0, 0.4) inset;
+    position:relative;       
+    box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.5), 0px 0px 40px rgba(0, 0, 0, 0.4) inset;
 }
 
 .paper:before, .paper:after
@@ -35,8 +35,12 @@
 /* end of effect */
 
 body {
-    font-family: 'Forum', cursive;
+    font-family: 'Source Serif Pro', Georgia, serif;
     background: url('splendide-azur.jpg');
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 100px 0px;
 }
 
 p {
@@ -58,7 +62,7 @@ code {
     text-align: center;
 }
 
-.main {
+#main {
     background: white;
     max-width: 600px;
     margin: 20px;
@@ -66,19 +70,9 @@ code {
     text-align: justify;
 }
 
-#main p {
-}
-
 #footer {
     margin: 20px;
     padding: 30px;
     max-width: 600px;
     background: white;
-    opacity: 0.3;
-
-    transition: opacity 0.5s ease-in-out;
-}
-
-#footer:hover {
-    opacity: 1;
 }

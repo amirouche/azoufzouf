@@ -4,3 +4,7 @@ output/
 *pid
 draft/
 build/
+
+.coverage
+azoufzouf.egg-info/
+htmlcov/

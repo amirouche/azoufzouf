@@ -1,47 +1,37 @@
-ⵣsection{Kesako azoufzouf ?!}
+ⵣsection{News}
 
-ⵣset["pollen"]{http://mbutterick.github.io/pollen/doc/}
 
-It is primarly a markup language inpired by ⵣhref[pollen]{pollen}
+ⵣlist{
+  ⵣitem{15/02, full rewrite with tests (99% coverage), add support for nested commands}
+  ⵣitem{14/08, first public release}
+}
+
+ⵣsection{Kesako azoufzouf?}
+
+It is a markup language inpired by ⵣhref{http://pollenpub.com/}{pollen}
  which is itself inspired by tex macro language.
 
-This is not a replacement for:
+It has the benefits of both markup languages (not verbose), template languages (easy to extend).
 
-a) pollen (or racket)
-b) tex, latex or anything related to tex
-c) jinja2 (or any template engine for that matter)
-
-What is it then? Good question, a small library for me
-to fiddle with while I'm not at work. Because I like it,
-I bread it until now and I find it beautiful. I know it's unfair.
+There is not much code, I recommend you to ⵣhref{https://github.com/amirouche/azoufzouf}{read it and give feedback if you can}.
 
 ⵣsection{Getting started}
 
-Here is the current output of ⵣcode{azoufzouf --help} command:
+Example script that build this page:
 
-ⵣhelp
+ⵣinclude{make.py}
 
-Yeah it's pretty minimal, read the source (ⵣcode{azoufzouf.py} is 210 lines)
-to know how to put it to good use. 
+The markup used to populate the page:
 
-Basicaly this tex inspired language is easy to fiddle with from Python.
+ⵣinclude{index.azf}
 
-Here is an ⵣcode{index.azf} the file used to render this page:
+The default “command character“ is is ⵣhref{https://en.wikipedia.org/wiki/Berber_flag}{the letter yaz in amazigh}.
 
-ⵣinclude["index.azf"]
-
-Rendering is actually handled from Python, here is it:
-
-ⵣpython["main.py"]
+It's possible to configure it, but it must never appear in the text.
 
 ⵣsection{COPYING}
 
-The licensing is very liberal, FRAK IT 14.08 or later, see below:
-
-ⵣinclude["COPYING"]
-
-The language by itself needs to be improved, but it's good enough for
-my immediate needs.
+ⵣinclude{COPYING}
 
 That's all folks!
 
