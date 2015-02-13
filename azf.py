@@ -372,6 +372,8 @@ class Jinja:
 
     @classmethod
     def render(cls, template, *paths, filters=None, **context):
+        if not filters:
+            filters = dict()
         render = cls(*paths, **filters)
         output = render(template, context)
         return output
