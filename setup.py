@@ -4,21 +4,18 @@ from setuptools import setup, find_packages
 
 setup(
     name='azoufzouf',
-    version='14.08',
+    version='15.02.13',
     author='Amirouche Boubekki',
     author_email='amirouche@hypermove.net',
-    description='Opinionated markup language',
-    py_modules= ['azoufzouf'],
+    description='Slick markup language',
+    py_modules=['azf'],
     zip_safe=False,
     license='frak it!',
     install_requires=[
         'docopt',
+        'pygments',
+        'jinja2',
     ],
-    entry_points={
-        'console_scripts': [
-            'azoufzouf = azoufzouf:main',
-        ]
-    },
     classifiers=[
         'Intended Audience :: Developers',
         'Operating System :: OS Independent',
