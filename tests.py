@@ -358,6 +358,17 @@ a thing from me.
         expected = "<p>héllo there what happened to you lately? I know you have been up to something, don't you?</p><p>You don't want to tell me? So do I! You won't hear a thing from me.</p>"
         self.assertEqual(output, expected)
 
+    def test_one_long_paragraph_over_several_lines(self):
+        text = """héllo there what happened to you lately? I know
+you have been up to something, don't you?
+You don't want to tell me? So do I! You won't hear
+a thing from me.
+"""
+        output = render(text)['body']
+        expected = "<p>héllo there what happened to you lately? I know you have been up to something, don't you? You don't want to tell me? So do I! You won't hear a thing from me.</p>"
+        self.assertEqual(output, expected)
+
+        
     def test_text_with_dash_over_several_lines(self):
         text = """- héllo there what happened to you lately?
 

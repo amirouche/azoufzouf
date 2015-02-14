@@ -219,7 +219,6 @@ class HTML:
         yield from self._emit('\n')
 
     def _emit(self, value):
-
         if value == ' ' and self._mode != INLINE:
             self._space_count += 1
         elif value == '\n':
@@ -232,6 +231,7 @@ class HTML:
         else:
             if self._space_count == 1 and self._mode in (PARAGRAPH, INLINE):
                 yield ' '
+            self._space_count = 0
             if self._mode == NOMODE:
                 self._mode = PARAGRAPH
                 yield '<p>'
@@ -351,7 +351,6 @@ class HTML:
             lang = ''.join(self.to_html(lang))
         with self._verbatim():
             code = ''.join(self.to_html(code))
-        print('lang', lang.split('\n'))
         code = self._highlight(lang, code)
         yield code
 
