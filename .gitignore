@@ -8,3 +8,5 @@ build/
 .coverage
 azoufzouf.egg-info/
 htmlcov/
+
+dist/
