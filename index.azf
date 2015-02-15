@@ -2,7 +2,7 @@
 
 
 ⵣlist{
-  ⵣitem{15/02, full rewrite with tests (99% coverage), add support for nested commands}
+  ⵣitem{15/02, full rewrite with tests (99% coverage), add support for nested commands (it's now possible to create lists (and list of lists))}
   ⵣitem{14/08, first public release}
 }
 
