@@ -4,10 +4,10 @@ from setuptools import setup, find_packages
 
 setup(
     name='azoufzouf',
-    version='15.02.13',
+    version='15.02.15',
     author='Amirouche Boubekki',
     author_email='amirouche@hypermove.net',
-    description='Slick markup language',
+    description='Sleek markup language',
     py_modules=['azf'],
     zip_safe=False,
     license='frak it!',
