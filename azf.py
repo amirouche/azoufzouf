@@ -200,9 +200,9 @@ class HTML:
                 else:
                     if getattr(method, 'is_paragraph', False):
                         with self._inline():
-                            yield from method(*token['arguments'])
+                            yield from self._emit(method(*token['arguments']))
                     else:
-                        yield from method(*token['arguments'])
+                        yield from self._emit(method(*token['arguments']))
             elif kind == 'text':
                 eol_count = 0
                 yield from self._emit(token['value'])
@@ -271,6 +271,7 @@ class HTML:
         ('h2', 'h3', 'h4', 'h5', 'h6')
     )
 
+    @is_paragraph
     def list(self, tokens):
         self._space_count = 0
         yield '<ol>'
@@ -317,6 +318,7 @@ class HTML:
                 text = ''.join(self.to_html(text))
                 yield '<code>%s</code>' % text
 
+    @is_paragraph
     def include(self, value):
         with self._inline():
             filepath = ''.join(self.to_html(value))
