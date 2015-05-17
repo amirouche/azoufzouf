@@ -3,7 +3,8 @@
 .paper
 {
     position:relative;       
-    box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.5), 0px 0px 40px rgba(0, 0, 0, 0.4) inset;
+    box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.5), 0px 0px 10px rgba(0, 0, 0, 0.4) inset;
+    border: 1px solid white;
 }
 
 .paper:before, .paper:after
@@ -11,16 +12,16 @@
     content:"";
     position:absolute; 
     z-index:-1;
-    -webkit-box-shadow:0 0 20px rgba(0,0,0,0.8);
-    -moz-box-shadow:0 0 20px rgba(0,0,0,0.8);
-    box-shadow:0 0 20px rgba(0,0,0,0.8);
+    -webkit-box-shadow:0 0 5px rgba(0,0,0,0.8);
+    -moz-box-shadow:0 0 5px rgba(0,0,0,0.8);
+    box-shadow:0 0 5px rgba(0,0,0,0.8);
     top:10px;
     bottom:10px;
     left:0;
     right:0;
     -moz-border-radius:100px / 10px;
     border-radius:100px / 10px;
-} 
+ }
 .paper:after
 {
     right:10px; 
@@ -39,8 +40,8 @@ body {
     background: url('splendide-azur.jpg');
     display: flex;
     flex-direction: column;
-    align-items: center;
     margin: 100px 0px;
+    align-items: center;
 }
 
 p {
@@ -53,26 +54,23 @@ code {
 }
 
 #header {
-    max-width: 600px;
     margin: 20px;
     padding: 30px;
-
     background: white;
-
     text-align: center;
+    max-width: 519px;
 }
 
 #main {
     background: white;
-    max-width: 600px;
     margin: 20px;
     padding: 30px;
     text-align: justify;
+    max-width: 519px;    
 }
 
 #footer {
     margin: 20px;
     padding: 30px;
-    max-width: 600px;
     background: white;
 }
